@@ -1,0 +1,7 @@
+# Build output and local captures
+build/
+samples/
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/

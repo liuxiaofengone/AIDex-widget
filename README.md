@@ -45,10 +45,11 @@ ARM64 机器（如骁龙笔记本）构建时给 02 加参数：`02-build.ps1 -R
 
 ## 已知限制
 
-- 仓库未包含占位图标 PNG（见下方清单），打包前补任意 PNG 即可
 - 刷新由 Windows 小部件系统托管，不是秒级实时
 
-## 图标文件（打包前补齐到 `src/CodexBarWidget/Assets`）
+## 图标文件
+
+仓库已包含一套占位图标（`src/CodexBarWidget/Assets`），克隆下来可直接构建。想换成自己的图标，按以下文件名与尺寸替换即可：
 
 - `Square44x44Logo.png`（44×44）
 - `Square150x150Logo.png`（150×150）
