@@ -31,9 +31,13 @@ Copy-Item (Join-Path $pubDir '*') $layout -Recurse -Force
 Copy-Item (Join-Path $srcDir 'Package.appxmanifest') (Join-Path $layout 'AppxManifest.xml') -Force
 if ($Rid -eq 'win-arm64') {
     # The source manifest declares x64; the layout copy must match the build.
+    # Use .NET IO with explicit UTF-8: a Get-Content/Set-Content round-trip in
+    # Windows PowerShell 5.1 reads the BOM-less UTF-8 manifest as ANSI and
+    # mangles its Chinese strings, and MakeAppx then fails with C00CEE21.
     $mf = Join-Path $layout 'AppxManifest.xml'
-    (Get-Content $mf -Raw).Replace('ProcessorArchitecture="x64"', 'ProcessorArchitecture="arm64"') |
-        Set-Content $mf -Encoding UTF8
+    $xml = [IO.File]::ReadAllText($mf, [Text.Encoding]::UTF8)
+    $xml = $xml.Replace('ProcessorArchitecture="x64"', 'ProcessorArchitecture="arm64"')
+    [IO.File]::WriteAllText($mf, $xml, (New-Object Text.UTF8Encoding $false))
 }
 Copy-Item (Join-Path $srcDir 'Assets') (Join-Path $layout 'Assets') -Recurse -Force
 
