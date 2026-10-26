@@ -14,6 +14,9 @@ namespace CodexBarWidget;
 /// </summary>
 internal static class CardData
 {
+    private static bool _desktopLogged;
+    private static string? _lastDesktop;
+
     public static string Build(UsageSnapshot snap)
     {
         var providers = new List<Dictionary<string, object?>>();
@@ -46,17 +49,24 @@ internal static class CardData
             updatedAt = $"更新于 {snap.FetchedAt:HH:mm}";
         }
 
+        // The "查看全部用量" button is unconditional (top of the card, always
+        // visible even when provider rows overflow the tile). Resolve the
+        // desktop app here anyway and log it when it changes, so the log
+        // shows whether discovery works; a click with no exe just logs.
+        var desktop = CodexBarClient.ResolveDesktopPath();
+        if (!_desktopLogged || _lastDesktop != desktop)
+        {
+            _desktopLogged = true;
+            _lastDesktop = desktop;
+            Log.Write("Desktop app: " + (desktop ?? "not found"));
+        }
+
         var root = new Dictionary<string, object?>
         {
             ["providers"] = providers,
             ["hasGlobalError"] = snap.GlobalError != null,
             ["globalError"] = snap.GlobalError ?? "",
-            ["updatedAt"] = updatedAt,
-            // The "查看全部用量" button only renders when the desktop app
-            // exists to open; discovery is a few File.Exists checks, cheap
-            // enough to run on every card build (so installing the desktop
-            // app later lights the button up without a provider restart).
-            ["showViewAll"] = CodexBarClient.ResolveDesktopPath() != null
+            ["updatedAt"] = updatedAt
         };
         return JsonSerializer.Serialize(root);
     }
