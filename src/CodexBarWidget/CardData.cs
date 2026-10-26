@@ -8,28 +8,30 @@ namespace CodexBarWidget;
 /// Builds the data JSON that the Adaptive Card template binds against.
 /// Field names here must stay in sync with Templates/usage-template.json.
 ///
-/// Compact card (2026-10-26): the tile clips anything taller than itself and
-/// Adaptive Cards has no sticky footer, so a bottom "view all" link only
-/// stays visible if the whole card fits. Each provider is therefore a single
-/// summary line (name + per-window percentages, or the balance for
-/// balance-style providers); per-window bars, reset times and the paid/
-/// granted split live in the CodexBar desktop window behind the link.
-/// The template renders one TextBlock per provider from "line".
+/// Row card (2026-10-26): each provider renders as one stock-style row
+/// block (left: name + secondary window, right: primary percent + window
+/// label, percent tinted by usage threshold), because the tile clips
+/// anything taller than itself and Adaptive Cards has no sticky footer.
+/// The bottom "view all" link only stays visible if the whole card fits,
+/// so the row count follows the tile size: small 1, medium 3, large 5
+/// (capped by the provider count; extra providers stay behind the link).
+/// Per-window bars and reset times live in the CodexBar desktop window.
+/// The template renders one row Container per provider from these fields.
 /// </summary>
 internal static class CardData
 {
     private static bool _desktopLogged;
     private static string? _lastDesktop;
 
-    public static string Build(UsageSnapshot snap)
+    /// <summary>Self-test path: medium tile (3 rows).</summary>
+    public static string Build(UsageSnapshot snap) => Build(snap, 3);
+
+    public static string Build(UsageSnapshot snap, int maxRows)
     {
         var providers = new List<Dictionary<string, object?>>();
-        foreach (var p in snap.Providers)
+        for (int i = 0; i < snap.Providers.Count && i < maxRows; i++)
         {
-            providers.Add(new Dictionary<string, object?>
-            {
-                ["line"] = BuildLine(p)
-            });
+            providers.Add(BuildRow(snap.Providers[i]));
         }
 
         string updatedAt;
@@ -47,9 +49,9 @@ internal static class CardData
         }
 
         // The "查看全部用量" link sits at the bottom of the card (first-party
-        // style). Resolve the desktop app here anyway and log it when it
-        // changes, so the log shows whether discovery works; a click with no
-        // exe just logs.
+        // style) and the whole card is clickable via the root selectAction.
+        // Resolve the desktop app here anyway and log it when it changes, so
+        // the log shows whether discovery works; a click with no exe logs.
         var desktop = CodexBarClient.ResolveDesktopPath();
         if (!_desktopLogged || _lastDesktop != desktop)
         {
@@ -68,30 +70,79 @@ internal static class CardData
         return JsonSerializer.Serialize(root);
     }
 
-    private static string BuildLine(ProviderUsage p)
+    private static Dictionary<string, object?> BuildRow(ProviderUsage p)
     {
-        string head = string.IsNullOrEmpty(p.Plan) ? p.Name : $"{p.Name} {p.Plan}";
+        string title = string.IsNullOrEmpty(p.Plan) ? p.Name : $"{p.Name} {p.Plan}";
         if (p.ErrorText != null)
         {
-            return $"{head} · ⚠ {p.ErrorText}";
+            return new Dictionary<string, object?>
+            {
+                ["title"] = title,
+                ["subtitle"] = $"⚠ {p.ErrorText}",
+                ["subtitleColor"] = "attention",
+                ["subtitleSubtle"] = false,
+                ["value"] = "",
+                ["valueColor"] = "default",
+                ["sub"] = ""
+            };
         }
-        var parts = new List<string>();
-        // Same first-two-windows rule the old detailed card used; a third
-        // window, if one ever appears, stays in the desktop window.
-        for (int i = 0; i < p.Windows.Count && i < 2; i++)
+
+        if (p.Windows.Count == 0)
         {
-            var w = p.Windows[i];
-            if (w.IsBalance)
+            return new Dictionary<string, object?>
             {
-                parts.Add(string.IsNullOrEmpty(w.ResetText)
-                    ? w.Label
-                    : $"{w.Label} · {w.ResetText}");
-            }
-            else
-            {
-                parts.Add($"{w.Label} {(int)Math.Round(w.UsedPercent)}%");
-            }
+                ["title"] = title,
+                ["subtitle"] = "",
+                ["subtitleColor"] = "default",
+                ["subtitleSubtle"] = true,
+                ["value"] = "",
+                ["valueColor"] = "default",
+                ["sub"] = ""
+            };
         }
-        return parts.Count == 0 ? head : $"{head} · {string.Join(" · ", parts)}";
+
+        var primary = p.Windows[0];
+        if (primary.IsBalance)
+        {
+            // Label is "余额 ¥29.99" (or bare "余额"); the amount goes on the
+            // right like a stock price, the paid/granted split underneath
+            // the name like a stock's subtitle.
+            string amount = primary.Label.StartsWith("余额 ", StringComparison.Ordinal)
+                ? primary.Label["余额 ".Length..]
+                : primary.Label;
+            if (amount.Length == 0) amount = primary.Label;
+            // Bare "余额" (no amount parsed): don't print the word twice.
+            string balanceSub = amount == "余额" ? "" : "余额";
+            return new Dictionary<string, object?>
+            {
+                ["title"] = title,
+                ["subtitle"] = primary.ResetText ?? "",
+                ["subtitleColor"] = "default",
+                ["subtitleSubtle"] = true,
+                ["value"] = amount,
+                ["valueColor"] = "default",
+                ["sub"] = balanceSub
+            };
+        }
+
+        int used = (int)Math.Round(primary.UsedPercent);
+        string subtitle = "";
+        if (p.Windows.Count > 1)
+        {
+            var second = p.Windows[1];
+            subtitle = second.IsBalance
+                ? second.Label
+                : $"{second.Label} {(int)Math.Round(second.UsedPercent)}%";
+        }
+        return new Dictionary<string, object?>
+        {
+            ["title"] = title,
+            ["subtitle"] = subtitle,
+            ["subtitleColor"] = "default",
+            ["subtitleSubtle"] = true,
+            ["value"] = used + "%",
+            ["valueColor"] = used >= 90 ? "attention" : used >= 70 ? "warning" : "accent",
+            ["sub"] = primary.Label
+        };
     }
 }

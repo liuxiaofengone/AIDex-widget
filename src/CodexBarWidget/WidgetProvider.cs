@@ -14,6 +14,10 @@ public sealed class CompactWidgetInfo
     public string WidgetId { get; set; } = "";
     public string WidgetName { get; set; } = "";
     public bool IsActive { get; set; }
+    // Tile size drives how many provider rows the card shows (small 1,
+    // medium 3, large 5); the board reports it on every activation and on
+    // size changes, so this is kept current, not read once at pin time.
+    public WidgetSize Size { get; set; } = WidgetSize.Medium;
 }
 
 /// <summary>
@@ -51,7 +55,8 @@ internal sealed class WidgetProvider : IWidgetProvider
                         RunningWidgets[ctx.Id] = new CompactWidgetInfo
                         {
                             WidgetId = ctx.Id,
-                            WidgetName = ctx.DefinitionId
+                            WidgetName = ctx.DefinitionId,
+                            Size = ctx.Size
                         };
                     }
                 }
@@ -69,7 +74,8 @@ internal sealed class WidgetProvider : IWidgetProvider
         var info = new CompactWidgetInfo
         {
             WidgetId = widgetContext.Id,
-            WidgetName = widgetContext.DefinitionId
+            WidgetName = widgetContext.DefinitionId,
+            Size = widgetContext.Size
         };
         lock (Gate) RunningWidgets[info.WidgetId] = info;
         Log.Write($"CreateWidget {info.WidgetId} ({info.WidgetName})");
@@ -141,6 +147,7 @@ internal sealed class WidgetProvider : IWidgetProvider
         // Size changed: same template handles all sizes, just repaint.
         if (RunningWidgets.TryGetValue(contextChangedArgs.WidgetContext.Id, out var info))
         {
+            info.Size = contextChangedArgs.WidgetContext.Size;
             UpdateWidget(info);
         }
     }
@@ -153,6 +160,7 @@ internal sealed class WidgetProvider : IWidgetProvider
         if (RunningWidgets.TryGetValue(widgetContext.Id, out var info))
         {
             info.IsActive = true;
+            info.Size = widgetContext.Size;
             UpdateWidget(info);
         }
         CodexBarClient.EnsureFresh(RefreshAllWidgets);
@@ -176,6 +184,15 @@ internal sealed class WidgetProvider : IWidgetProvider
         }
     }
 
+    /// <summary>Provider rows per tile size, capped by the provider count
+    /// in CardData. Small shows 1 row, medium 3, large 5.</summary>
+    private static int MaxRows(WidgetSize size) => size switch
+    {
+        WidgetSize.Small => 1,
+        WidgetSize.Large => 5,
+        _ => 3
+    };
+
     private static void UpdateWidget(CompactWidgetInfo info)
     {
         try
@@ -184,7 +201,7 @@ internal sealed class WidgetProvider : IWidgetProvider
             var options = new WidgetUpdateRequestOptions(info.WidgetId)
             {
                 Template = CardTemplates.UsageTemplate,
-                Data = CardData.Build(snapshot),
+                Data = CardData.Build(snapshot, MaxRows(info.Size)),
                 CustomState = "1"
             };
             WidgetManager.GetDefault().UpdateWidget(options);
