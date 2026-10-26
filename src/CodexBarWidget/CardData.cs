@@ -8,9 +8,13 @@ namespace CodexBarWidget;
 /// Builds the data JSON that the Adaptive Card template binds against.
 /// Field names here must stay in sync with Templates/usage-template.json.
 ///
-/// Per provider we flatten the first two usage windows into fixed slots
-/// (prefix "s" = primary/session, "w" = secondary/weekly) instead of nesting
-/// a second $data loop — simpler and safer with the widget host's templating.
+/// Compact card (2026-10-26): the tile clips anything taller than itself and
+/// Adaptive Cards has no sticky footer, so a bottom "view all" link only
+/// stays visible if the whole card fits. Each provider is therefore a single
+/// summary line (name + per-window percentages, or the balance for
+/// balance-style providers); per-window bars, reset times and the paid/
+/// granted split live in the CodexBar desktop window behind the link.
+/// The template renders one TextBlock per provider from "line".
 /// </summary>
 internal static class CardData
 {
@@ -22,17 +26,10 @@ internal static class CardData
         var providers = new List<Dictionary<string, object?>>();
         foreach (var p in snap.Providers)
         {
-            var d = new Dictionary<string, object?>
+            providers.Add(new Dictionary<string, object?>
             {
-                ["name"] = p.Name,
-                ["hasPlan"] = !string.IsNullOrEmpty(p.Plan),
-                ["plan"] = p.Plan ?? "",
-                ["hasError"] = p.ErrorText != null,
-                ["errorText"] = p.ErrorText ?? ""
-            };
-            FillWindow(d, "s", p.Windows.Count > 0 ? p.Windows[0] : null);
-            FillWindow(d, "w", p.Windows.Count > 1 ? p.Windows[1] : null);
-            providers.Add(d);
+                ["line"] = BuildLine(p)
+            });
         }
 
         string updatedAt;
@@ -49,10 +46,10 @@ internal static class CardData
             updatedAt = $"更新于 {snap.FetchedAt:HH:mm}";
         }
 
-        // The "查看全部用量" button is unconditional (top of the card, always
-        // visible even when provider rows overflow the tile). Resolve the
-        // desktop app here anyway and log it when it changes, so the log
-        // shows whether discovery works; a click with no exe just logs.
+        // The "查看全部用量" link sits at the bottom of the card (first-party
+        // style). Resolve the desktop app here anyway and log it when it
+        // changes, so the log shows whether discovery works; a click with no
+        // exe just logs.
         var desktop = CodexBarClient.ResolveDesktopPath();
         if (!_desktopLogged || _lastDesktop != desktop)
         {
@@ -71,32 +68,30 @@ internal static class CardData
         return JsonSerializer.Serialize(root);
     }
 
-    private static void FillWindow(Dictionary<string, object?> d, string prefix, UsageWindow? win)
+    private static string BuildLine(ProviderUsage p)
     {
-        string cap = prefix.ToUpperInvariant(); // "S" / "W"
-        d["has" + cap] = win != null;
-        if (win == null)
+        string head = string.IsNullOrEmpty(p.Plan) ? p.Name : $"{p.Name} {p.Plan}";
+        if (p.ErrorText != null)
         {
-            d[prefix + "Label"] = "";
-            d[prefix + "UsedText"] = "";
-            d[prefix + "BarUsed"] = 1;
-            d[prefix + "BarLeft"] = 99;
-            d[prefix + "BarStyle"] = "accent";
-            d["has" + cap + "Reset"] = false;
-            d[prefix + "Reset"] = "";
-            return;
+            return $"{head} · ⚠ {p.ErrorText}";
         }
-
-        int used = (int)Math.Round(win.UsedPercent);
-        // Column widths are weights; keep both segments visible at extremes.
-        int barUsed = used <= 0 ? 1 : used >= 100 ? 99 : used;
-
-        d[prefix + "Label"] = win.Label;
-        d[prefix + "UsedText"] = used + "%";
-        d[prefix + "BarUsed"] = barUsed;
-        d[prefix + "BarLeft"] = 100 - barUsed;
-        d[prefix + "BarStyle"] = used >= 90 ? "attention" : used >= 70 ? "warning" : "accent";
-        d["has" + cap + "Reset"] = !string.IsNullOrEmpty(win.ResetText);
-        d[prefix + "Reset"] = win.ResetText ?? "";
+        var parts = new List<string>();
+        // Same first-two-windows rule the old detailed card used; a third
+        // window, if one ever appears, stays in the desktop window.
+        for (int i = 0; i < p.Windows.Count && i < 2; i++)
+        {
+            var w = p.Windows[i];
+            if (w.IsBalance)
+            {
+                parts.Add(string.IsNullOrEmpty(w.ResetText)
+                    ? w.Label
+                    : $"{w.Label} · {w.ResetText}");
+            }
+            else
+            {
+                parts.Add($"{w.Label} {(int)Math.Round(w.UsedPercent)}%");
+            }
+        }
+        return parts.Count == 0 ? head : $"{head} · {string.Join(" · ", parts)}";
     }
 }

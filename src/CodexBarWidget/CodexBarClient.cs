@@ -14,6 +14,9 @@ public sealed class UsageWindow
     public string Label = "";
     public double UsedPercent;
     public string? ResetText;
+    /// <summary>True for balance-style windows (DeepSeek): Label is an amount,
+    /// UsedPercent is meaningless, ResetText is the paid/granted split.</summary>
+    public bool IsBalance;
 }
 
 public sealed class ProviderUsage
@@ -477,6 +480,7 @@ internal static class CodexBarClient
             w.Label = BalanceLabel(desc,
                 GetString(usage, "login_method") ?? GetString(usage, "loginMethod"));
             w.ResetText = BalanceDetail(desc);
+            w.IsBalance = true;
             p.Windows.Add(w);
             return;
         }
