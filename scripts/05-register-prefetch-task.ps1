@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   注册 / 注销 CodexBarWidget 用量预取计划任务：每 3 分钟运行一次
@@ -62,4 +62,4 @@ Start-ScheduledTask -TaskName $taskName
 Write-Host "已注册计划任务：$taskName（每 3 分钟）"
 Write-Host "预取脚本：$destScript"
 Write-Host "数据文件：$(Join-Path $appDir 'latest.json')（首次运行约 1 分钟内生成）"
-Write-Host '注销：powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1 -Unregister'
+Write-Host "注销：powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1 -Unregister"

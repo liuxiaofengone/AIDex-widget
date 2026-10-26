@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Win-CodexBar 用量预取：由计划任务每 3 分钟运行一次，把 codexbar-cli 的
