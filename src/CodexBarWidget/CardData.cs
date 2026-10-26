@@ -51,7 +51,12 @@ internal static class CardData
             ["providers"] = providers,
             ["hasGlobalError"] = snap.GlobalError != null,
             ["globalError"] = snap.GlobalError ?? "",
-            ["updatedAt"] = updatedAt
+            ["updatedAt"] = updatedAt,
+            // The "查看全部用量" button only renders when the desktop app
+            // exists to open; discovery is a few File.Exists checks, cheap
+            // enough to run on every card build (so installing the desktop
+            // app later lights the button up without a provider restart).
+            ["showViewAll"] = CodexBarClient.ResolveDesktopPath() != null
         };
         return JsonSerializer.Serialize(root);
     }

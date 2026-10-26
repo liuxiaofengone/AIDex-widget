@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using Microsoft.Windows.Widgets;
@@ -102,6 +103,36 @@ internal sealed class WidgetProvider : IWidgetProvider
                 UpdateWidget(info); // immediate repaint (cached data), fresh data follows
             }
             CodexBarClient.EnsureFresh(RefreshAllWidgets);
+        }
+        if (actionInvokedArgs.Verb == "viewAll")
+        {
+            // "查看全部用量": hand off to the full CodexBar desktop window.
+            // The desktop app is a single-instance tray app, so launching its
+            // exe is the same as clicking its tray icon: it brings the
+            // existing window forward, or starts the app if it is not running.
+            // No card repaint needed; the button only renders when the exe
+            // was found, so a missing exe here is just a race — log and stop.
+            try
+            {
+                var desktop = CodexBarClient.ResolveDesktopPath();
+                if (desktop != null)
+                {
+                    Log.Write("Launching CodexBar desktop: " + desktop);
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = desktop,
+                        UseShellExecute = true
+                    });
+                }
+                else
+                {
+                    Log.Write("viewAll pressed but CodexBar desktop exe not found.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Launch CodexBar desktop failed: " + ex.Message);
+            }
         }
     }
 

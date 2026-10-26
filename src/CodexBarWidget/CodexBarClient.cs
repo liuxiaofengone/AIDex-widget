@@ -285,6 +285,60 @@ internal static class CodexBarClient
         return null;
     }
 
+    /// <summary>
+    /// Locate the CodexBar desktop app (codexbar-desktop.exe), the window the
+    /// "查看全部用量" button opens. This is the tray app the user opens by
+    /// clicking its tray icon; it is single-instance, so launching the exe
+    /// brings the existing window forward, or starts the app if needed.
+    /// Deliberately does NOT fall back to codexbar.exe: that name means
+    /// different things across install flavors, and guessing wrong would
+    /// launch something unexpected. Users with a non-standard location can
+    /// point at it with %APPDATA%\CodexBarWidget\desktop-path.txt.
+    /// </summary>
+    public static string? ResolveDesktopPath()
+    {
+        // 0) Explicit config file: %APPDATA%\CodexBarWidget\desktop-path.txt
+        try
+        {
+            var cfg = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "CodexBarWidget", "desktop-path.txt");
+            if (File.Exists(cfg))
+            {
+                var p = File.ReadAllText(cfg).Trim();
+                if (p.Length > 0 && File.Exists(p)) return p;
+            }
+        }
+        catch { /* fall through */ }
+
+        // 1) Standard per-user install location
+        var local = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Programs", "CodexBar", "codexbar-desktop.exe");
+        if (File.Exists(local)) return local;
+
+        // 2) Sibling of the resolved CLI
+        var cli = ResolveCliPath();
+        if (cli != null)
+        {
+            try
+            {
+                var sibling = Path.Combine(
+                    Path.GetDirectoryName(cli)!, "codexbar-desktop.exe");
+                if (File.Exists(sibling)) return sibling;
+            }
+            catch { /* malformed CLI path */ }
+        }
+
+        // 3) Machine-wide install location
+        var pf = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            "CodexBar", "codexbar-desktop.exe");
+        if (File.Exists(pf)) return pf;
+
+        return null;
+    }
+
     // ---------- JSON parsing (tolerant) ----------
 
     private static UsageSnapshot Parse(string json, DateTimeOffset? fetchedAt = null)
