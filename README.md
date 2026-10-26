@@ -12,6 +12,7 @@ Windows 11 小部件面板里的 AI 用量监控 —— [Win-CodexBar](https://g
 - **余额型**服务商（DeepSeek 等纯 API 余额）：直接显示余额（如 ¥29.99）+「已充值 / 赠送」明细，不用无意义的百分比窗口
 - 登录过期、获取超时等错误用中文提示，不再抛原始报错
 - 手动刷新按钮 + 90 秒缓存，底部带更新时间
+- 后台预取（推荐）：打开面板即显示最新数据，不用等取数，见下
 
 ## 前置条件
 
@@ -39,13 +40,34 @@ ARM64 机器（如骁龙笔记本）构建时给 02 加参数：`02-build.ps1 -R
 
 装完按 `Win+W`，在小部件面板里把「AI 用量」固定即可。
 
+（推荐）再注册后台预取任务，让打开面板时直接显示最新数据：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1
+```
+
+## 后台预取（打开即最新）
+
+小组件进程只在面板打开时才运行，所以"打开时现取"注定要等 CLI 启动加逐个服务商请求的时间。预取把取数和打开解耦：
+
+- 计划任务 `CodexBarWidget Prefetch` 每 3 分钟运行一次 `scripts\prefetch-usage.ps1`，跑 `codexbar-cli usage -f json` 并把结果写到 `%LOCALAPPDATA%\CodexBarWidget\latest.json`（临时文件 + 原子替换，读方永远不会读到写一半的文件；取数失败时绝不覆盖旧文件）；
+- 小组件打开时先读这个文件，毫秒级就能画出来，同时后台再刷新一次兜底；
+- 文件没更新也没关系，显示的就是上一次缓存，超 5 分钟沿用"可能已过期"标注。语义就是跟着 CodexBar 的数据走，不承诺秒级实时。
+
+任务指向 `%LOCALAPPDATA%\CodexBarWidget\` 下的脚本副本，仓库移动 / 删除后任务仍可用；脚本更新后重跑 05 即可同步副本。注销任务：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1 -Unregister
+```
+
 ## 工作原理
 
 一个打包的 C# 应用（MSIX）以进程外 COM 方式实现 `IWidgetProvider`，界面用 Adaptive Cards 渲染。每次刷新时它调用 `codexbar-cli usage -f json` 并解析输出；凭据只留在 CodexBar 内部，小组件进程不接触任何 cookie / token。
 
 ## 已知限制
 
-- 刷新由 Windows 小部件系统托管，不是秒级实时
+- 面板关闭时小组件进程不运行，数据新鲜度依赖预取任务（3 分钟一档），不承诺秒级实时
+- 定时通知不在计划内：CodexBar 自带的用量告警通知已覆盖提醒需求，没必要再做一层
 
 ## 图标文件
 

@@ -57,6 +57,15 @@ internal static class CodexBarClient
     private static DateTimeOffset _lastFetch = DateTimeOffset.MinValue;
     private static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(90);
 
+    /// <summary>
+    /// File the scheduled prefetch task refreshes every 3 minutes
+    /// (scripts/05-register-prefetch-task.ps1). It is atomically replaced,
+    /// so a reader never sees a half-written file.
+    /// </summary>
+    private static readonly string PrefetchPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "CodexBarWidget", "latest.json");
+
     public static string? LastRawJson { get; private set; }
 
     /// <summary>Latest snapshot, or a "loading" placeholder before the first fetch.</summary>
@@ -75,6 +84,56 @@ internal static class CodexBarClient
     public static void Invalidate()
     {
         lock (Gate) _lastFetch = DateTimeOffset.MinValue;
+    }
+
+    /// <summary>
+    /// Seed/refresh the in-memory cache from the scheduled-prefetch file,
+    /// if it is newer than the current cache. Called on Activate/CreateWidget
+    /// so opening the board paints prefetch data instantly (≤3 min old)
+    /// instead of waiting for a live CLI run; the background refresh in
+    /// EnsureFresh still runs afterwards as a backstop.
+    ///
+    /// A prefetch snapshot never clobbers a good cache with an error: if the
+    /// file fails to parse, the old snapshot stays and the live path will
+    /// surface the error instead. A missing/stale file just means the board
+    /// shows the last-known data, which is the intended "follow CodexBar"
+    /// semantic.
+    /// </summary>
+    public static bool RefreshFromPrefetchFile()
+    {
+        try
+        {
+            if (!File.Exists(PrefetchPath)) return false;
+            // Local time, not UTC: CardData renders FetchedAt as HH:mm in
+            // the snapshot's own offset, so UTC here would display 8 hours
+            // early in China.
+            var mtime = new DateTimeOffset(File.GetLastWriteTime(PrefetchPath));
+            lock (Gate)
+            {
+                if (_cache != null && mtime <= _lastFetch) return false;
+            }
+            var json = File.ReadAllText(PrefetchPath);
+            if (string.IsNullOrWhiteSpace(json)) return false;
+            var snap = Parse(json, mtime);
+            if (snap.GlobalError != null)
+            {
+                Log.Write("Prefetch file ignored (parse error): " + snap.GlobalError);
+                return false;
+            }
+            lock (Gate)
+            {
+                // Re-check under the lock: a live fetch may have landed meanwhile.
+                if (_cache != null && mtime <= _lastFetch) return false;
+                _cache = snap;
+                _lastFetch = mtime;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Prefetch file load failed: " + ex.Message);
+            return false;
+        }
     }
 
     /// <summary>Start a background fetch if the cache is stale; invoke onUpdated when done.</summary>
@@ -228,9 +287,9 @@ internal static class CodexBarClient
 
     // ---------- JSON parsing (tolerant) ----------
 
-    private static UsageSnapshot Parse(string json)
+    private static UsageSnapshot Parse(string json, DateTimeOffset? fetchedAt = null)
     {
-        var snap = new UsageSnapshot { FetchedAt = DateTimeOffset.Now };
+        var snap = new UsageSnapshot { FetchedAt = fetchedAt ?? DateTimeOffset.Now };
         JsonDocument doc;
         try
         {

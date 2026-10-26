@@ -73,6 +73,7 @@ internal sealed class WidgetProvider : IWidgetProvider
         lock (Gate) RunningWidgets[info.WidgetId] = info;
         Log.Write($"CreateWidget {info.WidgetId} ({info.WidgetName})");
 
+        CodexBarClient.RefreshFromPrefetchFile();
         UpdateWidget(info);
         CodexBarClient.EnsureFresh(RefreshAllWidgets);
     }
@@ -115,7 +116,9 @@ internal sealed class WidgetProvider : IWidgetProvider
 
     public void Activate(WidgetContext widgetContext)
     {
-        // The board is looking at us: repaint with cache, refresh in background.
+        // The board is looking at us: prefer the prefetch file (≤3 min old),
+        // repaint, then refresh in background as before.
+        CodexBarClient.RefreshFromPrefetchFile();
         if (RunningWidgets.TryGetValue(widgetContext.Id, out var info))
         {
             info.IsActive = true;
