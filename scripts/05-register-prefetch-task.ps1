@@ -46,12 +46,25 @@ try {
         -RepetitionInterval (New-TimeSpan -Minutes 3) `
         -RepetitionDuration (New-TimeSpan -Days 3650)
 }
-$settings = New-ScheduledTaskSettingsSet `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 2) `
-    -MultipleInstances IgnoreNew `
-    -DisallowStartIfOnBatteries:$false `
-    -StopIfGoingOnBatteries:$false `
-    -StartWhenAvailable
+# 电池相关参数用开关形式：New-ScheduledTaskSettingsSet 在 Windows PowerShell 5.1
+# 里的正式参数名是 AllowStartIfOnBatteries / DontStopIfGoingOnBatteries（语义与
+# 任务计划 CIM 属性 DisallowStartIfOnBatteries / StopIfGoingOnBatteries 正好反过来）。
+# 之前误用了 CIM 属性名，部分系统上不认。如果开关也不被支持，退回默认电池策略
+#（仅交流电源时运行），任务本身仍可注册，不至于整个脚本失败。
+try {
+    $settings = New-ScheduledTaskSettingsSet `
+        -ExecutionTimeLimit (New-TimeSpan -Minutes 2) `
+        -MultipleInstances IgnoreNew `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -StartWhenAvailable
+} catch {
+    Write-Host "注意：电池相关参数在本机不受支持，改用默认电池策略（仅交流电源时运行）。"
+    $settings = New-ScheduledTaskSettingsSet `
+        -ExecutionTimeLimit (New-TimeSpan -Minutes 2) `
+        -MultipleInstances IgnoreNew `
+        -StartWhenAvailable
+}
 # 仅登录后运行（Interactive），不需要管理员密码。
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `
