@@ -50,7 +50,7 @@ powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1
 
 小组件进程只在面板打开时才运行，所以"打开时现取"注定要等 CLI 启动加逐个服务商请求的时间。预取把取数和打开解耦：
 
-- 计划任务 `CodexBarWidget Prefetch` 每 3 分钟运行一次 `scripts\prefetch-usage.ps1`，跑 `codexbar-cli usage -f json` 并把结果写到 `%LOCALAPPDATA%\CodexBarWidget\latest.json`（临时文件 + 原子替换，读方永远不会读到写一半的文件；取数失败时绝不覆盖旧文件）；
+- 计划任务 `CodexBarWidget Prefetch` 每 3 分钟运行一次 `scripts\prefetch-usage.ps1`，跑 `codexbar-cli usage -f json` 并把结果写到 `%LOCALAPPDATA%\CodexBarWidget\latest.json`（临时文件 + 原子替换，读方永远不会读到写一半的文件；取数失败时绝不覆盖旧文件）。任务动作走 `scripts\prefetch-launcher.vbs`（wscript 隐藏启动）：直接跑 powershell.exe 时 `-WindowStyle Hidden` 是窗口建出来之后再隐藏，有些系统上每 3 分钟会闪一下控制台，wscript 以窗口样式 0 启动则从创建起就是隐藏的；
 - 小组件打开时先读这个文件，毫秒级就能画出来，同时后台再刷新一次兜底；
 - 文件没更新也没关系，显示的就是上一次缓存，超 5 分钟沿用"可能已过期"标注。语义就是跟着 CodexBar 的数据走，不承诺秒级实时。
 

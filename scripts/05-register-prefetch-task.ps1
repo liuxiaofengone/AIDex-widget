@@ -33,9 +33,15 @@ if (-not (Test-Path -LiteralPath $appDir)) {
 # 脚本更新后重跑本文件即可同步副本。
 $srcScript = Join-Path $PSScriptRoot 'prefetch-usage.ps1'
 Copy-Item -LiteralPath $srcScript -Destination $destScript -Force
+$srcLauncher = Join-Path $PSScriptRoot 'prefetch-launcher.vbs'
+$destLauncher = Join-Path $appDir 'prefetch-launcher.vbs'
+Copy-Item -LiteralPath $srcLauncher -Destination $destLauncher -Force
 
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$destScript`""
+# 任务动作走 wscript 启动器：直接跑 powershell.exe 时，-WindowStyle Hidden 是
+# 窗口建出来之后再隐藏，有些系统上每 3 分钟会闪一下控制台；wscript 以窗口
+# 样式 0 启动，进程从创建起就是隐藏的，不会闪。
+$action = New-ScheduledTaskAction -Execute 'wscript.exe' `
+    -Argument "`"$destLauncher`""
 # RepetitionDuration 必须是一个任务计划能接受的有限值：[TimeSpan]::MaxValue
 # 会被序列化成 P999999999DT23H59M59S，注册时被计划程序以“超出范围”拒绝
 #（HRESULT 0x80041318）。注意 try/catch 护不住这里：生成 Trigger 对象本身不报错，
@@ -72,5 +78,6 @@ Start-ScheduledTask -TaskName $taskName
 
 Write-Host "已注册计划任务：$taskName（每 3 分钟）"
 Write-Host "预取脚本：$destScript"
+Write-Host "启动器：$destLauncher（wscript 隐藏启动，无控制台闪烁）"
 Write-Host "数据文件：$(Join-Path $appDir 'latest.json')（首次运行约 1 分钟内生成）"
 Write-Host "注销：powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1 -Unregister"
