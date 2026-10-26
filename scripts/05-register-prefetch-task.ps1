@@ -36,16 +36,14 @@ Copy-Item -LiteralPath $srcScript -Destination $destScript -Force
 
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
     -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$destScript`""
-try {
-    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
-        -RepetitionInterval (New-TimeSpan -Minutes 3) `
-        -RepetitionDuration ([TimeSpan]::MaxValue)
-} catch {
-    # 极少数系统上 MaxValue 不被接受时退到 10 年，效果等同。
-    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
-        -RepetitionInterval (New-TimeSpan -Minutes 3) `
-        -RepetitionDuration (New-TimeSpan -Days 3650)
-}
+# RepetitionDuration 必须是一个任务计划能接受的有限值：[TimeSpan]::MaxValue
+# 会被序列化成 P999999999DT23H59M59S，注册时被计划程序以“超出范围”拒绝
+#（HRESULT 0x80041318）。注意 try/catch 护不住这里：生成 Trigger 对象本身不报错，
+# 报错发生在后面的 Register-ScheduledTask 序列化时。365 天足够长，重跑本脚本
+# 会重新注册、顺带续期。
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+    -RepetitionInterval (New-TimeSpan -Minutes 3) `
+    -RepetitionDuration (New-TimeSpan -Days 365)
 # 电池相关参数用开关形式：New-ScheduledTaskSettingsSet 在 Windows PowerShell 5.1
 # 里的正式参数名是 AllowStartIfOnBatteries / DontStopIfGoingOnBatteries（语义与
 # 任务计划 CIM 属性 DisallowStartIfOnBatteries / StopIfGoingOnBatteries 正好反过来）。
