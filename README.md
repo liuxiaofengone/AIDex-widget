@@ -62,6 +62,28 @@ powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1 -
 - `reports.json` 是 Nowdex 的内部文件、不是公开 API，解析做了容错：将来 Nowdex 改版改了字段，小组件会降级显示「暂无用量数据」/「未命名服务」，不会崩溃；
 - 隐私边界：小组件只读上面三个快照文件，`credentials` 文件夹从不打开，任何凭据都不会离开本机。
 
+## 用量提醒
+
+小组件本体只在面板打开时运行，发不出系统通知；低用量提醒由一个独立的计划任务做（与退役的预取任务同路数）：
+
+- 任务 `AIDexWidget Usage Alert` 每 2 分钟隐藏运行 `scripts\usage-alert.ps1`，读 Nowdex 的 `reports.json`；
+- 任何时间窗口剩余低于阈值（默认 10%，严格低于才报，刚好 10% 不报）就弹一条 Windows 通知，写明服务商、窗口、剩余和重置时间；余额型服务商没有剩余百分比，不参与提醒；
+- 每个（服务商，窗口，重置周期）只报一次，新周期（ResetsAt 变化）会重新报；状态存在 `%LOCALAPPDATA%\AIDexWidget\alert-state.json`（只留最近 200 条）。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\06-register-usage-alert.ps1
+powershell -ExecutionPolicy Bypass -File scripts\06-register-usage-alert.ps1 -Threshold 15 -IntervalMinutes 2
+powershell -ExecutionPolicy Bypass -File scripts\06-register-usage-alert.ps1 -Unregister
+```
+
+注册后先跑一次测试通知，确认提醒通道能弹出来（不碰真实状态）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\AIDexWidget\usage-alert.ps1" -TestToast
+```
+
+几点说明：任务走 wscript 隐藏启动，不会闪控制台；通知本身就是提醒，点击通知不保证拉起 Nowdex；通知以小组件包作为发送方，卸载小组件后提醒不再弹出（任务仍在跑，会在 `alert.log` 里记一条）。背景：2026-10-27 实测，Nowdex 在 Codex 剩余 9% 时也不会发低用量提醒，所以才需要这一层。
+
 ## 工作原理
 
 一个打包的 C# 应用（MSIX）以进程外 COM 方式实现 `IWidgetProvider`，界面用 Adaptive Cards 渲染。每次更新（创建、激活、点刷新、改尺寸）都重新读一次 Nowdex 快照文件并重算行数；点卡片通过 `shell:AppsFolder\…!App` 拉起 Nowdex 窗口。
