@@ -1,10 +1,10 @@
-﻿# win-codexbar-widget
+﻿# AIDex-widget
 
 Windows 11 小部件面板里的 AI 用量监控 —— 数据来自 [Nowdex](https://nowdex.app/zh-hans/windows/)（Microsoft Store 免费原生应用，支持 x64 / Arm64），小组件只读它落在本地的快照文件，不跑 CLI、不联网、不碰任何凭据。
 
 > A Windows 11 Widgets board extension: check your AI coding-tool quotas and API balances at a glance (Win+W), powered by Nowdex's local snapshot files. No CLI, no network, no credentials touched.
 
-（仓库名保留 win-codexbar- 只是历史原因：2026-10-27 起数据源已从 Win-CodexBar 的 `codexbar-cli` 切换为 Nowdex，旧的 CLI 取数与 3 分钟预取任务全部退役。）
+（2026-10-27 起数据源已从 Win-CodexBar 的 `codexbar-cli` 切换为 Nowdex，旧的 CLI 取数与 3 分钟预取任务全部退役；仓库同日由 win-codexbar-widget 改名为 AIDex-widget。）
 
 ## 它能做什么
 
@@ -25,8 +25,8 @@ Windows 11 小部件面板里的 AI 用量监控 —— 数据来自 [Nowdex](ht
 ## 安装
 
 ```powershell
-git clone https://github.com/liuxiaofengone/win-codexbar-widget.git
-cd win-codexbar-widget
+git clone https://github.com/liuxiaofengone/AIDex-widget.git
+cd AIDex-widget
 powershell -ExecutionPolicy Bypass -File scripts\00-check-env.ps1
 powershell -ExecutionPolicy Bypass -File scripts\01-setup-dev.ps1
 ```
