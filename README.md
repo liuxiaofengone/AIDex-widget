@@ -1,4 +1,4 @@
-# win-codexbar-widget
+﻿# win-codexbar-widget
 
 Windows 11 小部件面板里的 AI 用量监控 —— 数据来自 [Nowdex](https://nowdex.app/zh-hans/windows/)（Microsoft Store 免费原生应用，支持 x64 / Arm64），小组件只读它落在本地的快照文件，不跑 CLI、不联网、不碰任何凭据。
 
@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1 -
 
 几点说明：
 
-- 新鲜度跟着 Nowdex 走：Nowdex 托盘常驻时按它自己的刷新间隔（1 / 5 / 15 分钟）更新文件；小组件不承诺秒级实时，超过 30 分钟没有新数据才标「可能已过期」；
+- 新鲜度跟着 Nowdex 走：Nowdex 托盘常驻时按它自己的刷新间隔（1 / 5 / 15 分钟）更新文件；小组件不承诺秒级实时，过期标注按 Nowdex 自己的刷新间隔算：至少 5 分钟且至少两倍间隔（1 分钟档就是 5 分钟没新数据标过期，15 分钟档则是 30 分钟）；
 - 服务商名称优先按 Nowdex 自身的窗口顺序（DisplayOrder）排列窗口，余额型服务商没有窗口，只有余额行；
 - `reports.json` 是 Nowdex 的内部文件、不是公开 API，解析做了容错：将来 Nowdex 改版改了字段，小组件会降级显示「暂无用量数据」/「未命名服务」，不会崩溃；
 - 隐私边界：小组件只读上面三个快照文件，`credentials` 文件夹从不打开，任何凭据都不会离开本机。
@@ -68,7 +68,7 @@ powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1 -
 
 ## 已知限制
 
-- 面板关闭时小组件进程不运行；Nowdex 托盘彻底退出后文件会冻结，小组件继续显示旧数据并在 30 分钟后标「可能已过期」
+- 面板关闭时小组件进程不运行；Nowdex 托盘彻底退出后文件会冻结，小组件继续显示旧数据并在按刷新间隔算出的阈值后标「可能已过期」
 - 定时通知不在计划内：Nowdex 自带的检查已覆盖提醒需求，没必要再做一层
 - 旧的 `CodexBarClient.cs`（CLI 取数）与预取脚本（`prefetch-usage.ps1`、`prefetch-launcher.vbs`）已不再被调用，仅留在仓库作历史参考；05 脚本保留，仅用于注销旧任务
 

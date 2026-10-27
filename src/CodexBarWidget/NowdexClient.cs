@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -26,6 +26,7 @@ internal static class NowdexClient
     public static string? LastRawJson { get; private set; }
 
     private static string? _lastNamesLog;
+    private static string? _lastStaleLog;
 
     /// <summary>Newest reports.json across all matching packages, or null.</summary>
     public static string? ResolveReportsPath()
@@ -200,7 +201,46 @@ internal static class NowdexClient
             snap.Providers.Add(p);
         }
         snap.FetchedAt = latest;
+        snap.StaleAfter = StaleAfter(localState);
+        var staleLine = $"stale after {snap.StaleAfter.TotalMinutes:0} min";
+        if (_lastStaleLog != staleLine)
+        {
+            _lastStaleLog = staleLine;
+            Log.Write("Nowdex " + staleLine);
+        }
         return snap;
+    }
+
+    /// <summary>Stale threshold from Nowdex's own refresh interval:
+    /// at least 5 minutes and at least twice the interval, so a stuck
+    /// tray is flagged promptly on fast intervals without false alarms
+    /// on the 15-minute one. Unknown or missing setting keeps 30 minutes.</summary>
+    private static TimeSpan StaleAfter(string localState)
+    {
+        try
+        {
+            var path = Path.Combine(localState, "settings.json");
+            if (!File.Exists(path)) return TimeSpan.FromMinutes(30);
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (!TryGet(doc.RootElement, "RefreshInterval", out var v)) return TimeSpan.FromMinutes(30);
+            double? minutes = null;
+            if (v.ValueKind == JsonValueKind.Number && v.TryGetDouble(out var d)) minutes = d;
+            else if (v.ValueKind == JsonValueKind.String)
+            {
+                var s = v.GetString() ?? "";
+                if (s.Contains("One", StringComparison.OrdinalIgnoreCase)) minutes = 1;
+                else if (s.Contains("Five", StringComparison.OrdinalIgnoreCase)) minutes = 5;
+                else if (s.Contains("Fifteen", StringComparison.OrdinalIgnoreCase)) minutes = 15;
+                else if (double.TryParse(s, out var n)) minutes = n;
+            }
+            if (minutes == null || minutes <= 0) return TimeSpan.FromMinutes(30);
+            return TimeSpan.FromMinutes(Math.Max(5, minutes.Value * 2));
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Nowdex settings parse failed: " + ex.Message);
+            return TimeSpan.FromMinutes(30);
+        }
     }
 
     /// <summary>Paid/granted split for balance providers, from Details ids.</summary>

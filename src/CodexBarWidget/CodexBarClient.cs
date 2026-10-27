@@ -36,10 +36,13 @@ public sealed class UsageSnapshot
     /// <summary>Set when nothing at all could be shown (CLI missing, bad output...).</summary>
     public string? GlobalError;
 
-    // Nowdex refreshes at most every 15 minutes, so a snapshot is only
-    // "possibly stale" after 30 minutes without new data (was 5 minutes
-    // when the CodexBar CLI fetched on demand).
-    public bool IsStale => DateTimeOffset.Now - FetchedAt > TimeSpan.FromMinutes(30);
+    /// <summary>How old a snapshot may be before it counts as stale.
+    /// NowdexClient sets this from Nowdex's own refresh interval
+    /// (at least 5 minutes, at least twice the interval); the default
+    /// 30 minutes covers the slowest 15-minute interval.</summary>
+    public TimeSpan StaleAfter = TimeSpan.FromMinutes(30);
+
+    public bool IsStale => DateTimeOffset.Now - FetchedAt > StaleAfter;
 }
 
 /// <summary>
