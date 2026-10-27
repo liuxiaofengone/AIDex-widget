@@ -1,25 +1,25 @@
 # win-codexbar-widget
 
-Windows 11 小部件面板里的 AI 用量监控 —— [Win-CodexBar](https://github.com/nesszer/Win-CodexBar) 的小组件扩展，与原项目零代码耦合，只通过它自带的 `codexbar-cli` 读取数据。
+Windows 11 小部件面板里的 AI 用量监控 —— 数据来自 [Nowdex](https://nowdex.app/zh-hans/windows/)（Microsoft Store 免费原生应用，支持 x64 / Arm64），小组件只读它落在本地的快照文件，不跑 CLI、不联网、不碰任何凭据。
 
-> A Windows 11 Widgets board extension for Win-CodexBar: check your AI coding-tool quotas and API balances at a glance (Win+W), powered by `codexbar-cli`. No code coupling with the upstream project.
+> A Windows 11 Widgets board extension: check your AI coding-tool quotas and API balances at a glance (Win+W), powered by Nowdex's local snapshot files. No CLI, no network, no credentials touched.
+
+（仓库名保留 win-codexbar- 只是历史原因：2026-10-27 起数据源已从 Win-CodexBar 的 `codexbar-cli` 切换为 Nowdex，旧的 CLI 取数与 3 分钟预取任务全部退役。）
 
 ## 它能做什么
 
-- 按 `Win+W` 打开小部件面板就能看到各家 AI 服务的用量，不必先打开 CodexBar
-- 显示哪些服务商，完全由你在 Win-CodexBar 里**启用的列表**决定，顺序与应用内一致
-- **窗口型**服务商（Claude / Codex / Kimi 等）：每个窗口一行——已用百分比 + 进度条 + 重置时间；≥70% 警告色、≥90% 红色
-- **余额型**服务商（DeepSeek 等纯 API 余额）：直接显示余额（如 ¥29.99）+「已充值 / 赠送」明细，不用无意义的百分比窗口
-- 登录过期、获取超时等错误用中文提示，不再抛原始报错
-- 手动刷新按钮 + 90 秒缓存，底部带更新时间
-- 卡片为自选股式行块：每家服务商一行浅底块（左边名称 + 次窗口用量，右边主窗口百分比 + 窗口名；百分比按用量着色，≥90% 红、≥70% 黄、其余蓝；余额型右边显示余额），行数跟随尺寸——小 1 行、中 3 行、大 5 行（按服务商数封顶，多余的服务商在桌面窗口看）；底部依次是更新时间 + 刷新与「查看全部用量」链接（居中蓝色文字，仿第一方小组件底部链接样式），保证链接不被裁掉；各窗口进度条、重置时间等明细去 CodexBar 桌面窗口看全量（若未找到桌面程序，点击仅记日志）
-- 整卡可点（仿第一方小组件）：卡片根节点带 selectAction，点卡片任意位置（刷新按钮除外）都拉起 CodexBar 桌面窗口，底部链接只是视觉提示
-- 后台预取（推荐）：打开面板即显示最新数据，不用等取数，见下
+- 按 `Win+W` 打开小部件面板就能看到各家 AI 服务的用量，不必先打开 Nowdex
+- 显示哪些服务商，完全由你在 Nowdex 里**登录 / 启用的列表**决定，顺序与 Nowdex 内一致
+- **窗口型**服务商（Codex / Grok / Antigravity / Kimi / Cursor 等）：主窗口百分比 + 窗口名，次窗口用量放左边第二行；百分比按用量着色，≥90% 红、≥70% 黄、其余蓝
+- **余额型**服务商（DeepSeek 等纯 API 余额）：右边直接显示余额（如 ¥29.99），左边第二行显示「已充值 / 赠送」明细
+- 卡片为自选股式行块：每家服务商一行浅底块，行数跟随尺寸——小 1 行、中 3 行、大 5 行（按服务商数封顶，多余的服务商点卡片进 Nowdex 窗口看）；底部依次是更新时间 + 刷新与「查看全部用量」链接（居中蓝色文字，仿第一方小组件底部链接样式），保证链接不被裁掉
+- 整卡可点（仿第一方小组件）：卡片根节点带 selectAction，点卡片任意位置（刷新按钮除外）都拉起 Nowdex 窗口，底部链接只是视觉提示
+- 登录过期、文件缺失等错误用中文提示，不再抛原始报错
 
 ## 前置条件
 
 1. Windows 11（x64 或 ARM64 均可）
-2. 已安装 **Win-CodexBar**，并在里面登录 / 启用你要看的服务商——小组件展示的是它的数据，自身不保存任何凭据
+2. 已安装 **Nowdex**，并在里面登录 / 启用你要看的服务商——小组件展示的是它的数据，自身不保存任何凭据；Nowdex 托盘进程需要保持运行，文件才会被持续刷新
 3. Windows 开发者模式（侧载安装需要；脚本 01 会尝试帮你打开）
 
 ## 安装
@@ -42,34 +42,35 @@ ARM64 机器（如骁龙笔记本）构建时给 02 加参数：`02-build.ps1 -R
 
 装完按 `Win+W`，在小部件面板里把「AI 用量」固定即可。
 
-（推荐）再注册后台预取任务，让打开面板时直接显示最新数据：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1
-```
-
-## 后台预取（打开即最新）
-
-小组件进程只在面板打开时才运行，所以"打开时现取"注定要等 CLI 启动加逐个服务商请求的时间。预取把取数和打开解耦：
-
-- 计划任务 `CodexBarWidget Prefetch` 每 3 分钟运行一次 `scripts\prefetch-usage.ps1`，跑 `codexbar-cli usage -f json` 并把结果写到 `%LOCALAPPDATA%\CodexBarWidget\latest.json`（临时文件 + 原子替换，读方永远不会读到写一半的文件；取数失败时绝不覆盖旧文件）。任务动作走 `scripts\prefetch-launcher.vbs`（wscript 隐藏启动）：直接跑 powershell.exe 时 `-WindowStyle Hidden` 是窗口建出来之后再隐藏，有些系统上每 3 分钟会闪一下控制台，wscript 以窗口样式 0 启动则从创建起就是隐藏的；
-- 小组件打开时先读这个文件，毫秒级就能画出来，同时后台再刷新一次兜底；
-- 文件没更新也没关系，显示的就是上一次缓存，超 5 分钟沿用"可能已过期"标注。语义就是跟着 CodexBar 的数据走，不承诺秒级实时。
-
-任务指向 `%LOCALAPPDATA%\CodexBarWidget\` 下的脚本副本，仓库移动 / 删除后任务仍可用；脚本更新后重跑 05 即可同步副本。注销任务：
+如果你之前用的是 CodexBar 版，请注销旧的预取任务（否则它还会每 3 分钟跑一次已经没人读的 CLI 取数）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1 -Unregister
 ```
 
+## 数据源（Nowdex）
+
+小组件每次刷新时直接读 Nowdex 的快照文件，不经过网络：
+
+- `%LOCALAPPDATA%\Packages\RandyLu.Nowdex_*\LocalState\reports.json`（用量快照，含窗口、余额、更新时间）
+- 同目录 `reset-deadlines.json` 与 `connections.json` 只用来解析服务商名称（多个同类包时取 reports.json 最新的一份）
+
+几点说明：
+
+- 新鲜度跟着 Nowdex 走：Nowdex 托盘常驻时按它自己的刷新间隔（1 / 5 / 15 分钟）更新文件；小组件不承诺秒级实时，超过 30 分钟没有新数据才标「可能已过期」；
+- 服务商名称优先按 Nowdex 自身的窗口顺序（DisplayOrder）排列窗口，余额型服务商没有窗口，只有余额行；
+- `reports.json` 是 Nowdex 的内部文件、不是公开 API，解析做了容错：将来 Nowdex 改版改了字段，小组件会降级显示「暂无用量数据」/「未命名服务」，不会崩溃；
+- 隐私边界：小组件只读上面三个快照文件，`credentials` 文件夹从不打开，任何凭据都不会离开本机。
+
 ## 工作原理
 
-一个打包的 C# 应用（MSIX）以进程外 COM 方式实现 `IWidgetProvider`，界面用 Adaptive Cards 渲染。每次刷新时它调用 `codexbar-cli usage -f json` 并解析输出；凭据只留在 CodexBar 内部，小组件进程不接触任何 cookie / token。
+一个打包的 C# 应用（MSIX）以进程外 COM 方式实现 `IWidgetProvider`，界面用 Adaptive Cards 渲染。每次更新（创建、激活、点刷新、改尺寸）都重新读一次 Nowdex 快照文件并重算行数；点卡片通过 `shell:AppsFolder\…!App` 拉起 Nowdex 窗口。
 
 ## 已知限制
 
-- 面板关闭时小组件进程不运行，数据新鲜度依赖预取任务（3 分钟一档），不承诺秒级实时
-- 定时通知不在计划内：CodexBar 自带的用量告警通知已覆盖提醒需求，没必要再做一层
+- 面板关闭时小组件进程不运行；Nowdex 托盘彻底退出后文件会冻结，小组件继续显示旧数据并在 30 分钟后标「可能已过期」
+- 定时通知不在计划内：Nowdex 自带的检查已覆盖提醒需求，没必要再做一层
+- 旧的 `CodexBarClient.cs`（CLI 取数）与预取脚本（`prefetch-usage.ps1`、`prefetch-launcher.vbs`）已不再被调用，仅留在仓库作历史参考；05 脚本保留，仅用于注销旧任务
 
 ## 图标文件
 
@@ -83,4 +84,4 @@ powershell -ExecutionPolicy Bypass -File scripts\05-register-prefetch-task.ps1 -
 
 ## 致谢
 
-基于 [Win-CodexBar](https://github.com/nesszer/Win-CodexBar)（MIT）构建，仅依赖其 CLI 的输出契约。已在 Windows 11 实测：DeepSeek 余额行、Kimi 双窗口均渲染正确。
+数据源为 [Nowdex](https://nowdex.app/zh-hans/windows/)。早期版本基于 [Win-CodexBar](https://github.com/nesszer/Win-CodexBar)（MIT）的 CLI 构建，2026-10-27 起已切换。已在 Windows 11 实测：DeepSeek 余额行、Kimi 双窗口均渲染正确。

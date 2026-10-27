@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
 
@@ -15,13 +15,11 @@ namespace CodexBarWidget;
 /// The bottom "view all" link only stays visible if the whole card fits,
 /// so the row count follows the tile size: small 1, medium 3, large 5
 /// (capped by the provider count; extra providers stay behind the link).
-/// Per-window bars and reset times live in the CodexBar desktop window.
+/// Per-window bars and reset times live in the Nowdex window.
 /// The template renders one row Container per provider from these fields.
 /// </summary>
 internal static class CardData
 {
-    private static bool _desktopLogged;
-    private static string? _lastDesktop;
 
     /// <summary>Self-test path: medium tile (3 rows).</summary>
     public static string Build(UsageSnapshot snap) => Build(snap, 3);
@@ -50,16 +48,7 @@ internal static class CardData
 
         // The "查看全部用量" link sits at the bottom of the card (first-party
         // style) and the whole card is clickable via the root selectAction.
-        // Resolve the desktop app here anyway and log it when it changes, so
-        // the log shows whether discovery works; a click with no exe logs.
-        var desktop = CodexBarClient.ResolveDesktopPath();
-        if (!_desktopLogged || _lastDesktop != desktop)
-        {
-            _desktopLogged = true;
-            _lastDesktop = desktop;
-            Log.Write("Desktop app: " + (desktop ?? "not found"));
-        }
-
+        // The Nowdex package discovery is logged by NowdexClient itself.
         var root = new Dictionary<string, object?>
         {
             ["providers"] = providers,

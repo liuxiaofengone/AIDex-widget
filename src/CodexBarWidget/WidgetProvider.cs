@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -80,9 +80,8 @@ internal sealed class WidgetProvider : IWidgetProvider
         lock (Gate) RunningWidgets[info.WidgetId] = info;
         Log.Write($"CreateWidget {info.WidgetId} ({info.WidgetName})");
 
-        CodexBarClient.RefreshFromPrefetchFile();
+        // Nowdex files are re-read on every update, so no prefetch/cache step.
         UpdateWidget(info);
-        CodexBarClient.EnsureFresh(RefreshAllWidgets);
     }
 
     public void DeleteWidget(string widgetId, string customState)
@@ -103,42 +102,17 @@ internal sealed class WidgetProvider : IWidgetProvider
         Log.Write($"OnActionInvoked verb={actionInvokedArgs.Verb}");
         if (actionInvokedArgs.Verb == "refresh")
         {
-            CodexBarClient.Invalidate();
             if (RunningWidgets.TryGetValue(actionInvokedArgs.WidgetContext.Id, out var info))
             {
-                UpdateWidget(info); // immediate repaint (cached data), fresh data follows
+                UpdateWidget(info); // re-reads the Nowdex files
             }
-            CodexBarClient.EnsureFresh(RefreshAllWidgets);
         }
         if (actionInvokedArgs.Verb == "viewAll")
         {
-            // "查看全部用量": hand off to the full CodexBar desktop window.
-            // The desktop app is a single-instance tray app, so launching its
-            // exe is the same as clicking its tray icon: it brings the
-            // existing window forward, or starts the app if it is not running.
-            // No card repaint needed; the button only renders when the exe
-            // was found, so a missing exe here is just a race — log and stop.
-            try
-            {
-                var desktop = CodexBarClient.ResolveDesktopPath();
-                if (desktop != null)
-                {
-                    Log.Write("Launching CodexBar desktop: " + desktop);
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = desktop,
-                        UseShellExecute = true
-                    });
-                }
-                else
-                {
-                    Log.Write("viewAll pressed but CodexBar desktop exe not found.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Launch CodexBar desktop failed: " + ex.Message);
-            }
+            // "查看全部用量": hand off to the Nowdex window (single-instance
+            // tray app, so launching its AUMID brings it forward, or starts
+            // it if it is not running). No card repaint needed.
+            NowdexClient.Launch();
         }
     }
 
@@ -154,16 +128,13 @@ internal sealed class WidgetProvider : IWidgetProvider
 
     public void Activate(WidgetContext widgetContext)
     {
-        // The board is looking at us: prefer the prefetch file (≤3 min old),
-        // repaint, then refresh in background as before.
-        CodexBarClient.RefreshFromPrefetchFile();
+        // The board is looking at us: repaint from the Nowdex files.
         if (RunningWidgets.TryGetValue(widgetContext.Id, out var info))
         {
             info.IsActive = true;
             info.Size = widgetContext.Size;
             UpdateWidget(info);
         }
-        CodexBarClient.EnsureFresh(RefreshAllWidgets);
     }
 
     public void Deactivate(string widgetId)
@@ -197,7 +168,7 @@ internal sealed class WidgetProvider : IWidgetProvider
     {
         try
         {
-            var snapshot = CodexBarClient.GetSnapshot();
+            var snapshot = NowdexClient.GetSnapshot();
             var options = new WidgetUpdateRequestOptions(info.WidgetId)
             {
                 Template = CardTemplates.UsageTemplate,

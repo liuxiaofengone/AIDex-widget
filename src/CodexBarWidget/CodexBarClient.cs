@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -36,7 +36,10 @@ public sealed class UsageSnapshot
     /// <summary>Set when nothing at all could be shown (CLI missing, bad output...).</summary>
     public string? GlobalError;
 
-    public bool IsStale => DateTimeOffset.Now - FetchedAt > TimeSpan.FromMinutes(5);
+    // Nowdex refreshes at most every 15 minutes, so a snapshot is only
+    // "possibly stale" after 30 minutes without new data (was 5 minutes
+    // when the CodexBar CLI fetched on demand).
+    public bool IsStale => DateTimeOffset.Now - FetchedAt > TimeSpan.FromMinutes(30);
 }
 
 /// <summary>
