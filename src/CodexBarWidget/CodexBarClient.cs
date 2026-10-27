@@ -13,9 +13,11 @@ public sealed class UsageWindow
 {
     public string Label = "";
     public double UsedPercent;
+    public double RemainingPercent;
     public string? ResetText;
     /// <summary>True for balance-style windows (DeepSeek): Label is an amount,
-    /// UsedPercent is meaningless, ResetText is the paid/granted split.</summary>
+    /// UsedPercent is meaningless, ResetText is the paid/granted split.
+    /// For time windows ResetText is the formatted reset time instead.</summary>
     public bool IsBalance;
 }
 

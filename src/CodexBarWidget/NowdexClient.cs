@@ -148,10 +148,13 @@ internal static class NowdexClient
             {
                 foreach (var w in wins.EnumerateArray())
                 {
+                    var used = GetDouble(w, "UsedPercent") ?? 0;
                     windows.Add((new UsageWindow
                     {
                         Label = GetString(w, "Title") ?? "",
-                        UsedPercent = GetDouble(w, "UsedPercent") ?? 0
+                        UsedPercent = used,
+                        RemainingPercent = GetDouble(w, "RemainingPercent") ?? (100 - used),
+                        ResetText = FormatReset(GetString(w, "ResetsAt"))
                     }, GetString(w, "Id") ?? ""));
                 }
             }
@@ -241,6 +244,27 @@ internal static class NowdexClient
             Log.Write("Nowdex settings parse failed: " + ex.Message);
             return TimeSpan.FromMinutes(30);
         }
+    }
+
+    /// <summary>Reset time in tray language: relative when the reset is
+    /// within 24 hours ("5 小时 0 分钟后重置", "45 分钟后重置"), absolute
+    /// local date + time otherwise ("11月2日 14:21 重置").</summary>
+    private static string? FormatReset(string? iso)
+    {
+        if (iso == null || !DateTimeOffset.TryParse(iso, out var reset)) return null;
+        var local = reset.ToLocalTime();
+        var diff = reset - DateTimeOffset.Now;
+        if (diff <= TimeSpan.Zero) return local.ToString("M月d日 HH:mm") + " 重置";
+        if (diff < TimeSpan.FromHours(1))
+        {
+            var m = (int)Math.Floor(diff.TotalMinutes);
+            return m < 1 ? "即将重置" : m + " 分钟后重置";
+        }
+        if (diff < TimeSpan.FromDays(1))
+        {
+            return (int)diff.TotalHours + " 小时 " + diff.Minutes + " 分钟后重置";
+        }
+        return local.ToString("M月d日 HH:mm") + " 重置";
     }
 
     /// <summary>Paid/granted split for balance providers, from Details ids.</summary>

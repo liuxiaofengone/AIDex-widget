@@ -8,14 +8,16 @@ namespace CodexBarWidget;
 /// Builds the data JSON that the Adaptive Card template binds against.
 /// Field names here must stay in sync with Templates/usage-template.json.
 ///
-/// Row card (2026-10-26): each provider renders as one stock-style row
-/// block (left: name + secondary window, right: primary percent + window
-/// label, percent tinted by usage threshold), because the tile clips
+/// Row card (2026-10-27): each provider renders as one stock-style row
+/// block (left: name + secondary window remaining, right: primary
+/// remaining + reset time, remaining tinted by threshold: <=10% red,
+/// <=30% yellow, else blue), because the tile clips
 /// anything taller than itself and Adaptive Cards has no sticky footer.
 /// The bottom "view all" link only stays visible if the whole card fits,
 /// so the row count follows the tile size: small 1, medium 3, large 5
 /// (capped by the provider count; extra providers stay behind the link).
-/// Per-window bars and reset times live in the Nowdex window.
+/// Per-window bars live in the Nowdex window; only the primary window's
+/// reset time is on the card.
 /// The template renders one row Container per provider from these fields.
 /// </summary>
 internal static class CardData
@@ -114,14 +116,19 @@ internal static class CardData
             };
         }
 
-        int used = (int)Math.Round(primary.UsedPercent);
+        // Remaining language, like the Nowdex tray: the big number is what
+        // is left, tinted by the same thresholds inverted (<=10% red,
+        // <=30% yellow, else blue). The primary window's label gives way
+        // to its reset time (the tray's most actionable line); the
+        // secondary window keeps its label + remaining.
+        int remaining = (int)Math.Round(primary.RemainingPercent);
         string subtitle = "";
         if (p.Windows.Count > 1)
         {
             var second = p.Windows[1];
             subtitle = second.IsBalance
                 ? second.Label
-                : $"{second.Label} {(int)Math.Round(second.UsedPercent)}%";
+                : $"{second.Label} 剩余 {(int)Math.Round(second.RemainingPercent)}%";
         }
         return new Dictionary<string, object?>
         {
@@ -129,9 +136,9 @@ internal static class CardData
             ["subtitle"] = subtitle,
             ["subtitleColor"] = "default",
             ["subtitleSubtle"] = true,
-            ["value"] = used + "%",
-            ["valueColor"] = used >= 90 ? "attention" : used >= 70 ? "warning" : "accent",
-            ["sub"] = primary.Label
+            ["value"] = "剩余 " + remaining + "%",
+            ["valueColor"] = remaining <= 10 ? "attention" : remaining <= 30 ? "warning" : "accent",
+            ["sub"] = primary.ResetText ?? ""
         };
     }
 }
