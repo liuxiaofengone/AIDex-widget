@@ -203,7 +203,10 @@ internal static class NowdexClient
             }
             snap.Providers.Add(p);
         }
-        snap.FetchedAt = latest;
+        // Normalize to machine-local: UpdatedAt carries +00:00, so without
+        // this the footer flips between UTC and local depending on which
+        // timestamp wins the max above (saw "07:04" for a 15:04 snapshot).
+        snap.FetchedAt = latest.ToLocalTime();
         snap.StaleAfter = StaleAfter(localState);
         var staleLine = $"stale after {snap.StaleAfter.TotalMinutes:0} min";
         if (_lastStaleLog != staleLine)
