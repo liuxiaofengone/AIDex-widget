@@ -31,7 +31,7 @@ function Write-AlertLog {
 
 function Get-ToastNotifier {
     try {
-        $pkg = Get-AppxPackage -Name 'CodexBarWidget' -ErrorAction Stop | Select-Object -First 1
+        $pkg = Get-AppxPackage -Name 'AIDexWidget' -ErrorAction Stop | Select-Object -First 1
         if (-not $pkg) { return $null }
         $aumid = $pkg.PackageFamilyName + '!App'
         [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null

@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 
 $root   = Split-Path $PSScriptRoot -Parent
 $layout = Join-Path $root 'build\layout'
-$msix   = Join-Path $root 'build\CodexBarWidget.msix'
+$msix   = Join-Path $root 'build\AIDexWidget.msix'
 $cer    = Join-Path $root 'build\devcert.cer'
 
 # Record the CLI's absolute path so the packaged provider process can find it
@@ -18,6 +18,9 @@ $cer    = Join-Path $root 'build\devcert.cer'
 & (Join-Path $PSScriptRoot '04-capture-usage-sample.ps1') -OnlyResolveCli
 
 # Remove any older registration of the same package first (keeps pins clean).
+# Also remove the pre-rename CodexBarWidget package, so the old app does not
+# stay installed alongside the renamed one.
+Get-AppxPackage -Name AIDexWidget | Remove-AppxPackage -ErrorAction SilentlyContinue
 Get-AppxPackage -Name CodexBarWidget | Remove-AppxPackage -ErrorAction SilentlyContinue
 
 if (-not $UseMsix) {
@@ -32,7 +35,7 @@ if (-not $UseMsix) {
     Write-Host "Installed OK."
 }
 
-Get-AppxPackage -Name CodexBarWidget | Format-List Name, PackageFullName, Status
+Get-AppxPackage -Name AIDexWidget | Format-List Name, PackageFullName, Status
 Write-Host "Now open the Widgets board (Win+W) -> Add widgets -> find 'AI Usage' and pin it."
-Write-Host "Provider log: $env:TEMP\CodexBarWidget.log"
-Write-Host "Headless check: & '...\CodexBarWidget.exe' --selftest  (exe is in build\layout)"
+Write-Host "Provider log: $env:TEMP\AIDexWidget.log"
+Write-Host "Headless check: & '...\AIDexWidget.exe' --selftest  (exe is in build\layout)"

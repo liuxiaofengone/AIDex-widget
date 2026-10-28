@@ -1,8 +1,8 @@
 ﻿# 02-build.ps1 - build the provider, assemble the package layout, pack + sign an MSIX.
 # Produces:
 #   build\layout\            loose layout (used by 03-install.ps1 default dev registration)
-#   build\CodexBarWidget.msix  signed package (used by 03-install.ps1 -UseMsix)
-#   build\devcert.cer        dev certificate (publisher CN=CodexBarWidgetDev)
+#   build\AIDexWidget.msix  signed package (used by 03-install.ps1 -UseMsix)
+#   build\devcert.cer        dev certificate (publisher CN=AIDexWidgetDev)
 param(
     # Build target. Use win-arm64 on ARM64 machines (e.g. Surface / Snapdragon
     # laptops): publish RID and the package architecture follow this choice.
@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root     = Split-Path $PSScriptRoot -Parent
-$proj     = Join-Path $root 'src\CodexBarWidget\CodexBarWidget.csproj'
+$proj     = Join-Path $root 'src\AIDexWidget\AIDexWidget.csproj'
 $srcDir   = Split-Path $proj -Parent
 $buildDir = Join-Path $root 'build'
 $pubDir   = Join-Path $buildDir 'publish'
@@ -50,7 +50,7 @@ $signtool = Join-Path $sdkBin.FullName 'x64\signtool.exe'
 if (-not (Test-Path $makeappx)) { throw "makeappx.exe not found: $makeappx" }
 
 Write-Host "`n== dev signing certificate =="
-$subject = 'CN=CodexBarWidgetDev'   # must equal the manifest Publisher
+$subject = 'CN=AIDexWidgetDev'   # must equal the manifest Publisher
 $cert = Get-ChildItem Cert:\CurrentUser\My |
         Where-Object { $_.Subject -eq $subject -and $_.HasPrivateKey } |
         Sort-Object NotAfter -Descending | Select-Object -First 1
@@ -61,17 +61,17 @@ if (-not $cert) {
 } else {
     Write-Host "Reusing cert $($cert.Thumbprint)"
 }
-$pwd = ConvertTo-SecureString 'codexbar-dev' -Force -AsPlainText
+$pwd = ConvertTo-SecureString 'aidex-dev' -Force -AsPlainText
 $pfx = Join-Path $buildDir 'devcert.pfx'
 $cer = Join-Path $buildDir 'devcert.cer'
 Export-PfxCertificate -Cert $cert -FilePath $pfx -Password $pwd | Out-Null
 Export-Certificate -Cert $cert -FilePath $cer | Out-Null
 
 Write-Host "`n== makeappx pack + sign =="
-$msix = Join-Path $buildDir 'CodexBarWidget.msix'
+$msix = Join-Path $buildDir 'AIDexWidget.msix'
 & $makeappx pack /d $layout /p $msix /o
 if ($LASTEXITCODE -ne 0) { throw "makeappx pack failed" }
-& $signtool sign /fd SHA256 /f $pfx /p 'codexbar-dev' $msix
+& $signtool sign /fd SHA256 /f $pfx /p 'aidex-dev' $msix
 if ($LASTEXITCODE -ne 0) { throw "signtool failed" }
 
 Write-Host "`n== build done =="

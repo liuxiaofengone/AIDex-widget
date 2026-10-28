@@ -4,7 +4,7 @@ Windows 11 小部件面板里的 AI 用量监控 —— 数据来自 [Nowdex](ht
 
 > A Windows 11 Widgets board extension: check your AI coding-tool quotas and API balances at a glance (Win+W), powered by Nowdex's local snapshot files. No CLI, no network, no credentials touched.
 
-（2026-10-27 起数据源已从 Win-CodexBar 的 `codexbar-cli` 切换为 Nowdex，旧的 CLI 取数与 3 分钟预取任务全部退役；仓库同日由 win-codexbar-widget 改名为 AIDex-widget。）
+（2026-10-27 起数据源已从 Win-CodexBar 的 `codexbar-cli` 切换为 Nowdex，旧的 CLI 取数与 3 分钟预取任务全部退役；仓库同日由 win-codexbar-widget 改名为 AIDex-widget。2026-10-28 应用全量改名为 AIDex Widget：包身份、exe、源码目录均由 CodexBarWidget 改为 AIDexWidget，旧包需卸载重装，`03-install.ps1` 会顺手卸掉旧包，装完需重新固定「AI 用量」。）
 
 ## 它能做什么
 
@@ -96,7 +96,7 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\AIDexWidget\usage-al
 
 ## 图标文件
 
-仓库已包含一套占位图标（`src/CodexBarWidget/Assets`），克隆下来可直接构建。想换成自己的图标，按以下文件名与尺寸替换即可：
+仓库已包含一套占位图标（`src/AIDexWidget/Assets`），克隆下来可直接构建。想换成自己的图标，按以下文件名与尺寸替换即可：
 
 - `Square44x44Logo.png`（44×44）
 - `Square150x150Logo.png`（150×150）
